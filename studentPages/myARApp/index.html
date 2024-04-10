@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+
+<head>
+    <meta name="viewport" content="width=device-width, user-scalable=no,
+    minimum-scale=1.0, maximum-scale=1.0">
+    <title>Hello, world!</title>
+    <!-- include three.js library -->
+    <script src='../../js/three.js'></script>
+    <script src='../../js/OBJLoader.js'></script>
+    <script src='../../js/MTLLoader.js'></script>
+    <!-- include jsartookit -->
+    <script src="../../jsartoolkit5/artoolkit.min.js"></script>
+    <script src="../../jsartoolkit5/artoolkit.api.js"></script>
+    <!-- include threex.artoolkit -->
+    <script src="../../threex/threex-artoolkitsource.js"></script>
+    <script src="../../threex/threex-artoolkitcontext.js"></script>
+    <script src="../../threex/threex-arbasecontrols.js"></script>
+    <script src="../../threex/threex-armarkercontrols.js"></script>
+</head>
+
+<body>
+    <script>
+        var scene, camera, renderer, clock, deltaTime, totalTime; //rendering variables
+        var arToolkitSource, arToolkitContext; //arToolKit
+        var markerRoot1; //marker variable, root
+        var mesh0, mesh1; //storage for the visual meshes
+
+        initialize();
+        animate();
+
+        //creating webpage
+        function initialize()
+        {
+
+            //adding light so we can see the models
+            scene = new THREE.Scene();
+            let ambientLight = new THREE.AmbientLight( 0xcccccc, 1.0 );
+            scene.add( ambientLight );
+
+            //adding virtual camera to the scene
+            camera = new THREE.Camera();
+            scene.add(camera);
+
+            //setting up renderer
+            renderer = new THREE.WebGLRenderer({
+                antialias : true,
+                alpha: true
+                });
+
+            //set renderer to appear as part of web page
+            renderer.setClearColor(new THREE.Color('lightgrey'), 0)
+            renderer.setSize( 640, 480 );
+            renderer.domElement.style.position = 'absolute'
+            renderer.domElement.style.top = '0px'
+            renderer.domElement.style.left = '0px'
+            document.body.appendChild( renderer.domElement );
+
+            //setting up animation clock
+            clock = new THREE.Clock();
+            deltaTime = 0;
+            totalTime = 0;
+
+            //set up artoolkit source
+            arToolkitSource = new THREEx.ArToolkitSource({
+                sourceType : 'webcam',
+                });
+
+            //If window is resized
+            function onResize()
+            {
+                arToolkitSource.onResize()
+                arToolkitSource.copySizeTo(renderer.domElement)
+                if ( arToolkitContext.arController !== null )
+                {
+                    arToolkitSource.copySizeTo(arToolkitContext.arController.canvas)
+                }
+            }
+                
+            arToolkitSource.init(function onReady(){
+                onResize()
+                });
+
+            // handle resize event
+            window.addEventListener('resize', function(){
+                onResize()
+                });
+
+
+            //creating tooklit context
+            arToolkitContext = new THREEx.ArToolkitContext({
+                cameraParametersUrl: '../../data/camera_para.dat',
+                detectionMode: 'mono'
+                });
+
+            //creating projection matrix
+            arToolkitContext.init( function onCompleted(){
+                camera.projectionMatrix.copy( arToolkitContext.getProjectionMatrix() );
+                });
+
+            //setting up marker
+            markerRoot1 = new THREE.Group();
+            scene.add(markerRoot1);
+            let markerControls1 = new THREEx.ArMarkerControls(arToolkitContext,
+            markerRoot1, {
+                type: 'pattern', patternUrl: "../../data/hiro.patt",
+                })
+
+            //adding content for marker display
+            let geometry1 = new THREE.PlaneBufferGeometry(1,1, 4,4);
+            let loader = new THREE.TextureLoader();
+            let texture = loader.load( '../../images/grass.jpg', render );
+            let material1 = new THREE.MeshBasicMaterial( { map: texture } );
+            mesh1 = new THREE.Mesh( geometry1, material1 );
+            mesh1.rotation.x = -Math.PI/2;
+            markerRoot1.add( mesh1 );
+
+            //loading and setting mesh
+            new THREE.MTLLoader()
+                .setPath( '../../models/puppy/' )
+                .load( 'puppy.mtl', function ( materials ) {
+                    materials.preload();
+                    new THREE.OBJLoader()
+                        .setMaterials( materials )
+                        .setPath( '../../models/puppy/' )
+                        .load( 'puppy.obj', function ( group ) {
+                            mesh0 = group.children[0];
+                            mesh0.material.side = THREE.DoubleSide;
+                            mesh0.position.y = 0.025;
+                            mesh0.scale.set(1.25,1.25,1.25);
+                            mesh0.rotation.y = Math.PI / 2;
+                            markerRoot1.add(mesh0);
+                        }, onProgress, onError );
+                });
+
+            function onProgress(xhr) { console.log( (xhr.loaded / xhr.total * 100) + '% loaded' ); }
+            function onError(xhr) { console.log( 'An error happened' ); }
+
+        }
+
+        //loop - makes renderer draw scene everytime screen is refreshed
+        function animate()
+        {
+        requestAnimationFrame(animate);
+        deltaTime = clock.getDelta();
+        totalTime += deltaTime;
+        //update and render every single frame
+        update();
+        render();
+        }
+
+        // update artoolkit on every frame, checking webcam is ready
+        function update()
+        {
+        if ( arToolkitSource.ready !== false )
+        arToolkitContext.update( arToolkitSource.domElement );
+        }
+
+        //draws conent onto scene
+        function render()
+        {
+        renderer.render( scene, camera );
+        }
+
+    </script>
+</body>
